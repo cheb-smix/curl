@@ -89,7 +89,7 @@ class Curl
 
     public function setResponseType(string $type) : self
     {
-        if (in_array($type, ["text", "json", "auto"])) {
+        if (in_array($type, ["raw", "json", "auto"])) {
             $this->responseType = $type;
         }
         return $this;
