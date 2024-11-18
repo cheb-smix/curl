@@ -14,16 +14,19 @@ class Curl
     private $contentType;
     private $headers = [];
     private $method = "GET";
-    private $availableMethods = ["GET", "POST", "PATCH", "PUT", "DELETE", "JSON"];
-    private $responseType = "json";
+    private $availableMethods = ["GET", "POST", "PATCH", "PUT", "DELETE"];
+    private $responseType = "auto";
     private $response;
+    private $responseHeader;
     private $responseInfo;
     private $statusCode;
     private $verboseData;
     private $parsedCli;
     private $debugMode = false;
-
     private $initFlag = false;
+
+
+    // BASIC INIT METHODS
     
     public function __construct(string $method = "GET")
     {
@@ -86,7 +89,7 @@ class Curl
 
     public function setResponseType(string $type) : self
     {
-        if (in_array($type, ["text", "json"])) {
+        if (in_array($type, ["text", "json", "auto"])) {
             $this->responseType = $type;
         }
         return $this;
@@ -103,6 +106,7 @@ class Curl
             $out = fopen('php://output', 'w');
             $this->requestParams[CURLOPT_VERBOSE] = true;
             $this->requestParams[CURLOPT_STDERR] = $out;
+            $this->requestParams[CURLOPT_HEADER] = true;
         }
 
         $this->curl = curl_init();
@@ -130,6 +134,11 @@ class Curl
         $this->responseInfo = curl_getinfo($this->curl);
         $this->statusCode = $this->responseInfo["http_code"];
 
+        if (isset($this->requestParams[CURLOPT_HEADER])) {
+            $this->responseHeader = substr($this->response, 0, $this->responseInfo["header_size"]);
+            $this->response = substr_replace($this->response, "", 0, $this->responseInfo["header_size"]);
+        }
+
         curl_close($this->curl);
 
         if ($this->debugMode) {
@@ -137,9 +146,12 @@ class Curl
             $this->verboseData = ob_get_clean();
         }
 
-        if ($this->responseType == "json" && !isset($this->requestParams[CURLOPT_HEADER])) {
+        if ($this->responseType == "json" || ($this->responseType == "auto" && stristr($this->responseHeader, "Content-Type: " . self::JSONCTYPE))) {
             try {
-                $this->response = json_decode($this->response, true);
+                if ($decoded = json_decode($this->response, true)) {
+                    $this->response = $decoded;
+                }
+                unset($decoded);
             } catch (\Exception $e) {
 
             }
@@ -150,11 +162,8 @@ class Curl
 
     private function internalInit() : void
     {
-        if ($this->method == "JSON") {
-            if (!$this->contentType) {
-                $this->contentType = self::JSONCTYPE;
-            }
-            $this->method = "POST";
+        if ($this->responseType == "auto") {
+            $this->requestParams[CURLOPT_HEADER] = true;
         }
 
         if ($this->method == "GET") {
@@ -186,17 +195,8 @@ class Curl
         // }
     }
 
-    public function getResponse()
-    {
-        return $this->init()->response;
-    }
 
-    public function getHeaders()
-    {
-        $this->requestParams[CURLOPT_HEADER] = true;
-        $this->requestParams[CURLOPT_NOBODY] = true;
-        return substr($this->getResponse(), 0, $this->responseInfo["header_size"]);
-    }
+    // DEBUG AND BUILD FEATURES
 
     public function buildCli()
     {
@@ -297,7 +297,7 @@ class Curl
     {
         $this->internalInit();
 
-        $object = "\$curl = (new " . self::class . "())->setUrl('" . $this->url . "')";
+        $object = "\$data = (new " . self::class . "())->setUrl('" . $this->url . "')";
 
         if ($this->headers) {
             $object .= "->setHeaders(['" . implode("', '", $this->headers) . "'])";
@@ -324,16 +324,6 @@ class Curl
         return $this->init()->responseInfo;
     }
 
-    public function code()
-    {
-        return $this->init()->statusCode;
-    }
-
-    public function isOkay()
-    {
-        return $this->code() === 200;
-    }
-
     public function getVerboseData()
     {
         $this->debugMode = true;
@@ -349,6 +339,7 @@ class Curl
                 "url"           => $this->url,
                 "requestBody"   => $this->requestBody,
                 "contentType"   => $this->contentType,
+                "responseType"  => $this->responseType,
                 "headers"       => $this->headers,
                 "method"        => $this->method,
             ],
@@ -357,6 +348,7 @@ class Curl
             "parsedCli"         => $this->parsedCli,
             "verboseData"       => $this->verboseData,
             "responseInfo"      => $this->responseInfo,
+            "responseHeader"    => $this->responseHeader,
             "response"          => $this->response,
         ];
     }
@@ -387,6 +379,34 @@ class Curl
         }
     }
 
+
+    // BASIC DATA ACQUISITION METHODS
+
+    public function getResponse()
+    {
+        return $this->init()->response;
+    }
+
+    public function getHeaders()
+    {
+        $this->requestParams[CURLOPT_HEADER] = true;
+        $this->requestParams[CURLOPT_NOBODY] = true;
+        return $this->responseHeader;
+    }
+
+    public function code()
+    {
+        return $this->init()->statusCode;
+    }
+
+    public function isOkay()
+    {
+        return $this->code() === 200;
+    }
+
+
+    // ADDITIONAL DATA ACQUISITION METHODS
+
     public function get()
     {
         $this->setMethod("GET");
@@ -414,12 +434,6 @@ class Curl
     public function delete()
     {
         $this->setMethod("DELETE");
-        return $this->getResponse();
-    }
-
-    public function json()
-    {
-        $this->setMethod("JSON");
         return $this->getResponse();
     }
 }
