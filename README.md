@@ -24,10 +24,10 @@
     - `isOkay()` - is it 200 ? :)
 - ADDITIONAL DATA ACQUISITION METHODS
     - `get()` - sets GET method and calls `getResponse()`
-    - `post()` - sets GET method and calls `getResponse()`
-    - `patch()` - sets GET method and calls `getResponse()`
-    - `put()` - sets GET method and calls `getResponse()`
-    - `delete()` - sets GET method and calls `getResponse()`
+    - `post()` - sets POST method and calls `getResponse()`
+    - `patch()` - sets PATCH method and calls `getResponse()`
+    - `put()` - sets PUT method and calls `getResponse()`
+    - `delete()` - sets DELETE method and calls `getResponse()`
 ## Examples
 - Set URL, headers, body and call `post` to get reponse using POST method
     ```
@@ -38,12 +38,14 @@
     ->post();
     ```
 - Get only headers of the request
-    `
+    ```
     $curl = new Curl();
     $curl->setUrl('https://ipinfo.io/217.13.' . rand(0, 254) . '.' . rand(2, 254) . '/geo');
     echo $curl->getHeaders();
-    `
+    ```
 - Parse Curl CLI request and print debug page
-    `(new Curl())->parseCli("curl --location --request GET 'https://ipinfo.io/147.83." . rand(0, 254) . "." . rand(2, 254) . "/geo'")->printDebug();`
-    
+    ```
+    (new Curl())->parseCli("curl --location --request GET 'https://ipinfo.io/147.83." . rand(0, 254) . "." . rand(2, 254) . "/geo'")->printDebug();
+    ```
+
     ![alt text](image.png)
