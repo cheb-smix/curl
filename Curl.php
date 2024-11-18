@@ -20,6 +20,7 @@ class Curl
     private $responseInfo;
     private $statusCode;
     private $verboseData;
+    private $parsedCli;
     private $debugMode = false;
 
     private $initFlag = false;
@@ -107,40 +108,7 @@ class Curl
         $this->curl = curl_init();
         $this->initFlag = true;
 
-        if ($this->method == "JSON") {
-            if (!$this->contentType) {
-                $this->contentType = self::JSONCTYPE;
-            }
-            $this->method = "POST";
-        }
-
-        if ($this->method == "GET") {
-            $this->contentType = null;
-        } elseif ($this->method == "DELETE") {
-            $this->contentType = null;
-            $this->requestParams[CURLOPT_CUSTOMREQUEST] = $this->method;
-        } else {
-            if ($this->requestBody) {
-                if ($this->contentType == self::JSONCTYPE) {
-                    $this->requestParams[CURLOPT_POSTFIELDS] = json_encode($this->requestBody);
-                } else {
-                    $this->requestParams[CURLOPT_POSTFIELDS] = http_build_query($this->requestBody);
-                    if ($this->contentType == self::URLENCCTYPE) {
-                        $this->requestParams[CURLOPT_POSTFIELDS] = urlencode($this->requestParams[CURLOPT_POSTFIELDS]);
-                    }
-                }
-            }
-
-            if ($this->method == "POST") {
-                $this->requestParams[CURLOPT_POST] = true;
-            } else {
-                $this->requestParams[CURLOPT_CUSTOMREQUEST] = $this->method;
-            }
-        }
-
-        // if ($this->contentType && !isset($this->headers["Content-Type"])) {
-        //     $this->headers["Content-Type"] = $this->contentType;
-        // }
+        $this->internalInit();
 
         curl_setopt($this->curl, CURLOPT_URL, $this->url);
 
@@ -180,6 +148,44 @@ class Curl
         return $this;
     }
 
+    private function internalInit() : void
+    {
+        if ($this->method == "JSON") {
+            if (!$this->contentType) {
+                $this->contentType = self::JSONCTYPE;
+            }
+            $this->method = "POST";
+        }
+
+        if ($this->method == "GET") {
+            $this->contentType = null;
+        } elseif ($this->method == "DELETE") {
+            $this->contentType = null;
+            $this->requestParams[CURLOPT_CUSTOMREQUEST] = $this->method;
+        } else {
+            if ($this->requestBody) {
+                if ($this->contentType == self::JSONCTYPE) {
+                    $this->requestParams[CURLOPT_POSTFIELDS] = json_encode($this->requestBody);
+                } else {
+                    $this->requestParams[CURLOPT_POSTFIELDS] = http_build_query($this->requestBody);
+                    if ($this->contentType == self::URLENCCTYPE) {
+                        $this->requestParams[CURLOPT_POSTFIELDS] = urlencode($this->requestParams[CURLOPT_POSTFIELDS]);
+                    }
+                }
+            }
+
+            if ($this->method == "POST") {
+                $this->requestParams[CURLOPT_POST] = true;
+            } else {
+                $this->requestParams[CURLOPT_CUSTOMREQUEST] = $this->method;
+            }
+        }
+
+        // if ($this->contentType && !isset($this->headers["Content-Type"])) {
+        //     $this->headers["Content-Type"] = $this->contentType;
+        // }
+    }
+
     public function getResponse()
     {
         return $this->init()->response;
@@ -194,7 +200,7 @@ class Curl
 
     public function buildCli()
     {
-        $this->init();
+        $this->internalInit();
         $cli = 'curl --location --request ';
         if (isset($this->requestParams[CURLOPT_NOBODY])) {
             $cli .= '--head ';
@@ -235,32 +241,32 @@ class Curl
             "--form",
         ];
 
-        $parsedCli = [];
+        $this->parsedCli = [];
 
         foreach ($flags as $key) {
             if (preg_match_all("/$key '?([^']+)'?/", $cli, $matches)) {
                 for ($i = 0; $i < count($matches[0]); $i++) {
-                    $parsedCli[] = [$key, trim($matches[1][$i])];
+                    $this->parsedCli[] = [$key, trim($matches[1][$i])];
                 }
                 $cli = str_replace($matches[0], '', $cli);
             }
         }
 
-        foreach ($parsedCli as $param) {
+        foreach ($this->parsedCli as $param) {
             switch ($param[0]) {
                 case "--head":
                     $this->requestParams[CURLOPT_HEADER] = true;
                     $this->requestParams[CURLOPT_NOBODY] = true;
-                    continue;
+                    break;
                 case "--request":
                     $this->setMethod($param[1]);
-                    continue;
+                    break;
                 case "--location":
                     $this->setUrl($param[1]);
-                    continue;
+                    break;
                 case "--header":
                     $this->setHeaders([$param[1]]);
-                    continue;
+                    break;
                 case "--data":
                     if ($this->contentType == self::JSONCTYPE) {
                         $this->setRequestBody(json_decode($param[1], true));
@@ -268,15 +274,15 @@ class Curl
                         $data = explode("=", urldecode($param[1]));
                         $this->requestBody[$data[0]] = $data[1];
                     }
-                    continue;
+                    break;
                 case "--data-urlencode":
                     $data = explode("=", urldecode($param[1]));
                     $this->requestBody[$data[0]] = $data[1];
-                    continue;
+                    break;
                 case "--form":
                     $data = explode("=", $param[1]);
                     $this->requestBody[$data[0]] = $data[1];
-                    continue;
+                    break;
             }
         }
 
@@ -289,7 +295,7 @@ class Curl
 
     public function buildObject()
     {
-        $this->init();
+        $this->internalInit();
 
         $object = "\$curl = (new " . self::class . "())->setUrl('" . $this->url . "')";
 
@@ -328,10 +334,57 @@ class Curl
         return $this->code() === 200;
     }
 
-    public function debug()
+    public function getVerboseData()
     {
         $this->debugMode = true;
         return $this->init()->verboseData;
+    }
+
+    public function debug()
+    {
+        $this->debugMode = true;
+        $this->init();
+        return [
+            "requestData" => [
+                "url"           => $this->url,
+                "requestBody"   => $this->requestBody,
+                "contentType"   => $this->contentType,
+                "headers"       => $this->headers,
+                "method"        => $this->method,
+            ],
+            "builtCli"          => $this->buildCli(),
+            "builtObject"       => $this->buildObject(),
+            "parsedCli"         => $this->parsedCli,
+            "verboseData"       => $this->verboseData,
+            "responseInfo"      => $this->responseInfo,
+            "response"          => $this->response,
+        ];
+    }
+
+    public function printDebug()
+    {
+        $_obInitialLevel_ = ob_get_level();
+        ob_start();
+        ob_implicit_flush(false);
+        extract($this->debug());
+        try {
+            require "debug.php";
+            echo ob_get_clean();
+        } catch (\Exception $e) {
+            while (ob_get_level() > $_obInitialLevel_) {
+                if (!@ob_end_clean()) {
+                    ob_clean();
+                }
+            }
+            throw $e;
+        } catch (\Throwable $e) {
+            while (ob_get_level() > $_obInitialLevel_) {
+                if (!@ob_end_clean()) {
+                    ob_clean();
+                }
+            }
+            throw $e;
+        }
     }
 
     public function get()
