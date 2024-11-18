@@ -1,5 +1,8 @@
 <?php
-
+$requestData = json_encode($requestData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+$parsedCli = json_encode($parsedCli, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+$responseInfo = json_encode($responseInfo, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+$response = json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
 ?>
 <div class="debug-container">
@@ -14,26 +17,30 @@
         <tbody>
             <tr>
                 <td>
-                    <p>▶ Parameters</p>
-                    <pre><?php echo json_encode($requestData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)?></pre>
-                    <p>▶ Built Cli</p>
+                    <p>▶ Parameters [<?=strlen($requestData)?> bytes]</p>
+                    <pre><?=$requestData?></pre>
+                    <p>▶ Built Cli [<?=strlen($builtCli)?> bytes]</p>
                     <pre><?=$builtCli?></pre>
-                    <p>▶ Built Object</p>
+                    <p>▶ Built Object [<?=strlen($builtObject)?> bytes]</p>
                     <pre><?=$builtObject?></pre>
-                    <p>▶ Parsed Cli Data</p>
-                    <pre><?php echo json_encode($parsedCli, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)?></pre>
+                    <p>▶ Parsed Cli Data [<?=strlen($parsedCli)?> bytes]</p>
+                    <pre><?=$parsedCli?></pre>
                 </td>
                 <td>
+                    <p>▶ Verbose Data [<?=strlen($verboseData)?> bytes]</p>
                     <pre><?=$verboseData?></pre>
                 </td>
                 <td>
-                    <pre><?php echo json_encode($responseInfo, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)?></pre>
+                    <p>▶ Info [<?=strlen($responseInfo)?> bytes]</p>
+                    <pre><?=$responseInfo?></pre>
                 </td>
             </tr>
             <tr>
                 <td colspan="3">
-                    <p>▶ Response</p>
-                    <pre><?php echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)?></pre>
+                    <p>▶ Response Header [<?=strlen($responseHeader)?> bytes]</p>
+                    <pre><?=$responseHeader?></pre>
+                    <p>▶ Response Body [<?=strlen($response)?> bytes]</p>
+                    <pre><?=$response?></pre>
                 </td>
             </tr>
         </tbody>
